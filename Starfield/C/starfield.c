@@ -2,8 +2,24 @@
  * Programa: Starfield
  * Autor: Javier Lozano
  *
- * Descripcion: Inspirado en un programa clasico.
+ * Descripcion:
+ * Las 'estrellas' son particulas representadas en un espacio 3D y su posicion
+ * esta representada por coordenadas X, Y y Z (Vector3).
  *
+ * Se delimita un rango en el Eje Z, entre 0, que es el origen, y Z_MAX.
+ * Las particulas se muven unicamente en el Eje Z, 'adelante' o 'reversa', y
+ * dependiendo de su posicion en el Eje afectara como se dibuja en el plano.
+ * 
+ * Si las particulas estan alejadas del origen estas apareceran mas cerca del
+ * centro, en el caso contrario apareceran mas disperzas. 
+ *
+ * Ese efecto se logra Multiplicando las coordenadas X y Y por: 1 - (Z / Z_MAX)
+ *
+ * El canal Alpha es proporcional a la posicion en Eje Z, si esta mas alejado
+ * del origen la particula tendra una mayor transparencia.
+ *
+ * Los colores se ciclan interpolandose Entre Rojo a Verde, de Verde a Azul y
+ * de Azul a Rojo.
  */
 
 #include <SDL2/SDL.h>
@@ -11,17 +27,19 @@
 
 // MACROS 
 
+#define NAME "C Starfield - SDL2"
 #define WIDTH	640
 #define HEIGHT	480
 
 #define STARS			500
-#define STAR_SPEED_MIN	1
-#define STAR_SPEED_MAX	5
-#define TRAIL	10
+#define STAR_SPEED_MIN	5
+#define STAR_SPEED_MAX	10
+#define TAIL	10
 
-#define ALPHA_MAX	255
-#define ALPHA_MIN	0
 #define ALPHA_RATE	10
+#define COLOR_RATE	0.5
+
+#define Z_MAX 500
 
 #define PI	3.1416
 
@@ -30,13 +48,12 @@
 typedef struct {
 	float x;
 	float y;
-} Vector2;
+	float z;
+} Vector3;
 
 typedef struct {
-	Vector2 origin;
-	Vector2 position;
-	Vector2 trail[TRAIL];
-	Vector2 angle;
+	Vector3 position;
+	float tail[TAIL];
 	float speed;
 	int alpha;
 } Star;
@@ -50,7 +67,7 @@ typedef struct {
 // Prototipos
 
 void ConstructStar(Star* star);
-void UpdateStar(Star* star, SDL_Renderer* renderer, Vector2* origin, SDL_Color* color);
+void UpdateStar(Star* star, SDL_Renderer* renderer, Vector3* origin, SDL_Color* color);
 void ChangeColor(float numerator, SDL_Color* color);
 float RandFloat(float min, float max);
 
@@ -63,7 +80,7 @@ int main(int argc, char* args[])
 	
 	// Inicio rapido de SDL 
 	SDL_Init(SDL_INIT_VIDEO);
-	demo->window = SDL_CreateWindow("SDL Starfield C", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS);
+	demo->window = SDL_CreateWindow(NAME, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS);
 	demo->renderer = SDL_CreateRenderer(demo->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
 	// Activa el Alpha Blending
@@ -75,7 +92,7 @@ int main(int argc, char* args[])
 	srand(time(NULL));
 
 	// Inicializa Origen 
-	Vector2 origen = { WIDTH * 0.5, HEIGHT * 0.5 };
+	Vector3 origen = { WIDTH * 0.5, HEIGHT * 0.5, 0 };
 
 	// Inicializa 'Starfield' 
 	Star* starfield = malloc(sizeof(Star) * STARS);
@@ -87,8 +104,8 @@ int main(int argc, char* args[])
 	// Color
 	SDL_Color color;
 
-	// Pivote que indica
-	int num = 0;
+	// Numerador que indica cuando debe cambiar el color
+	float num = 0;
 
 	// Bucle Principal 
 	int loop = 1;
@@ -102,7 +119,7 @@ int main(int argc, char* args[])
 		SDL_RenderClear(demo->renderer);
 
 		// Aumenta numerador
-		num += 1;
+		num += COLOR_RATE;
 		// Cambia el color
 		ChangeColor(num, &color);
 
@@ -134,74 +151,69 @@ int main(int argc, char* args[])
 
 void ConstructStar(Star* star)
 {
-	// Obten un Angulo aleatoreo entre 0 y 2PI randianes 
-	float angulo = RandFloat(0, PI * 2);
-
-	// Calcula Seno y Coseno 
- 	star->angle.x = SDL_cosf(angulo);
-	star->angle.y = SDL_sinf(angulo);
-
 	// Obten la Velocidad aleatorea entre STAR_SPEED_MIN y STAR_SPEED_MAX
 	star->speed = RandFloat((float)STAR_SPEED_MIN, (float)STAR_SPEED_MAX);
 	
-	// Distancia del origen
-	float distance = RandFloat(10, 100);
-	
 	// Inicializamos la posicion de la estrella y su origen
-	star->origin.x = distance * star->angle.x;
-	star->origin.y = distance * star->angle.y;
-	star->position.x = star->origin.x;
-	star->position.y = star->origin.y;
+	star->position.x = RandFloat(WIDTH * -0.5f, WIDTH * 0.5f);
+	star->position.y = RandFloat(HEIGHT * -0.5f, HEIGHT * 0.5f);
+	star->position.z = RandFloat(0, Z_MAX);
 
-
-	// Inicializamos la cola (trail)
-	for (int i = 0; i < TRAIL; i++)
+	// Inicializamos la cola
+	for (int i = 0; i < TAIL; i++)
 	{
-		star->trail[i] = star->position;
+		star->tail[i] = star->position.z;
 	}
 }
 
-void UpdateStar(Star* star, SDL_Renderer* renderer, Vector2* origen, SDL_Color* color)
+void UpdateStar(Star* star, SDL_Renderer* renderer, Vector3* origen, SDL_Color* color)
 {
-	// 
-	Vector2 p = { star->position.x + origen->x, star->position.y + origen->y };
-	// Revisa si la estrella estan dentro de la ventana 
-	if (p.x < 0 || p.x > WIDTH || p.y < 0 || p.y > HEIGHT)
+	// Calcula el procentaje de la posicion en Z sobre Z_MAX
+	float ratio = 1 - (star->position.z / Z_MAX);
+
+	// Origen + Posicion de la particula
+	Vector3 p = {
+		(star->position.x * ratio) + origen->x,
+		(star->position.y * ratio) + origen->y,
+		star->position.z };
+
+	// Si la estrella llegó al origen
+	if (p.z < 0)
 	{
-		star->position.x = star->origin.x;
-		star->position.y = star->origin.y;
-		star->alpha = ALPHA_MIN;
+		star->position.z = Z_MAX;
+		star->alpha = 0;
 	}
 
 	// Mueve de posiciones que componene el "Barrido"
-	for (int i = TRAIL - 1; i > 0 ; i--)
+	for (int i = TAIL - 1; i > 0 ; i--)
 	{
-		star->trail[i] = star->trail[i - 1];
+		star->tail[i] = star->tail[i - 1];
 	}
 
-	// Almacena la posicion actual
-	star->trail[0] = star->position;
+	// Almacena la posicion actual y el valor de Alpha
+	star->tail[0] = star->position.z;
 
-	// Mueve la estrella de posicion
-	star->position.x += star->speed * star->angle.x;
-	star->position.y += star->speed * star->angle.y;
+	// Mueve la estrella en direccion al origen
+	star->position.z -= star->speed;
 
 	// Cambiar Alpha
-	star->alpha += ALPHA_RATE;
-	if (star->alpha > ALPHA_MAX)
-	{
-		star->alpha = ALPHA_MAX;
-	}
+	star->alpha = 255 * ratio;
+	//printf("Ratio: %f Alpha: %d\n", ratio, star->alpha);
 
 	// Manda a dibujar la estrella 
 	SDL_SetRenderDrawColor(renderer, color->r, color->g, color->b, star->alpha);
 	SDL_RenderDrawPoint(renderer, p.x, p.y);
 
 	// Dibuja el "Barrido"
-	for (int i = 0; i < TRAIL; i++)
+	for (int i = 0; i < TAIL; i++)
 	{
-		SDL_SetRenderDrawColor(renderer, color->r, color->g, color->b, star->alpha / (i+2));
-		SDL_RenderDrawPoint(renderer, star->trail[i].x + origen->x, star->trail[i].y + origen->y);
+		// Calcula porcentaje para la posicion de la cola.
+		float t_ratio = 1 - (star->tail[i] / Z_MAX);
+		float t_alpha = 255 * t_ratio;
+		//printf("\tT_Ratio: %f T_Alpha: %d\n", t_ratio, (int)t_alpha);
+
+		SDL_SetRenderDrawColor(renderer, color->r, color->g, color->b, (int)t_alpha / (i+1));
+		SDL_RenderDrawPoint(renderer, (star->position.x * t_ratio) + origen->x, (star->position.y * t_ratio) + origen->y);
 	}
 }
 
@@ -228,14 +240,6 @@ void ChangeColor(float numerator, SDL_Color* color)
 		color->g = 0;
 		color->b = 255 - (255 * n) / 100;
 	}
-
-
-//	int num = (255 * n) / 100;
-//	int num2 = 255 - num;
-//	color->r = num;
-//	color->g = num2;
-
-//	printf("R: %d G: %d B: %d | Numerator: %f Fraction: %f | Color 1: %d Color 2: %d\n", color->r, color->g, color->b, numerator, section, num, num2);
 }
 
 float RandFloat(float min, float max)
