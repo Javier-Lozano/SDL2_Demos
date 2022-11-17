@@ -1,15 +1,15 @@
 #if !defined(TEXTURE_H)
 #define TEXTURE_H
 
-#include <SDL2/SDL.h>
+#include <SDL2/SDL_render.h>
 #include "vector.h"
 
 // Macros
 
-#define TEXTURE_WIDTH 32
-#define TEXTURE_HEIGHT 32
+#define TEXTURE_WIDTH 8
+#define TEXTURE_HEIGHT 8
 
-// Structs
+// Estructuras
 
 typedef struct {
     SDL_Texture* texture;

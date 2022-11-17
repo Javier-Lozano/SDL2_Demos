@@ -24,11 +24,9 @@
 
 #include "starfield.h"
 
-// Main
-
 int main(int argc, char* args[])
 {
-	// Asigna Dinamicamente 'Demo' 
+	// Inicia 'Demo' 
 	Demo* demo = malloc(sizeof(Demo));
 	
 	// Inicio rapido de SDL 
@@ -40,20 +38,20 @@ int main(int argc, char* args[])
 	SDL_SetRenderDrawBlendMode(demo->renderer, SDL_BLENDMODE_BLEND);
 
 	// Textura: Debería haber 3 archivos .bmp adjuntos al codigo fuente. Puedes probar con cualquiera
-	Texture t;
-	TextureLoad(demo->renderer, "Star_Dot.bmp", &t);
+	Texture tex;
+	TextureLoad(demo->renderer, "resources/Star_Dot.bmp", &tex);
 
 	// Semilla aleatorea en base a la "Tiempo" actual 
 	srand(time(NULL));
 
-	// Inicializa Origen 
+	// Posicion el Origen en el centro de la ventana
 	Vector3 origen = { WIDTH * 0.5, HEIGHT * 0.5, 0 };
 
 	// Inicializa 'Starfield' 
 	Star* starfield = malloc(sizeof(Star) * STARS);
 	for (int i = 0; i < STARS; i++)
 	{
-		StarConstruct(&starfield[i], WIDTH, HEIGHT);
+		StarConstruct(&starfield[i], WIDTH, HEIGHT, Z_MAX, TAIL, STAR_SPEED_MAX, STAR_SPEED_MIN);
 	}
 
 	// Color
@@ -66,8 +64,25 @@ int main(int argc, char* args[])
 	int loop = 1;
 	while (loop)
 	{
-		// Maneja el evento de salida 
-		while (SDL_PollEvent(&demo->event)) if (demo->event.type == SDL_QUIT) loop = 0;
+		// Eventos
+		while (SDL_PollEvent(&demo->event)) 
+		{
+			// Salir
+			if (demo->event.type == SDL_QUIT) loop = 0;
+
+			// Presiona Tecla
+			if (demo->event.type == SDL_KEYDOWN)
+			{
+				// Si presiona Enter
+				if (demo->event.key.keysym.sym == SDLK_RETURN)
+				{
+					for (int i = 0; i < STARS; i++)
+					{
+						starfield[i].speed *= -1;
+					}
+				}
+			}
+		}
 
 		// Limpia Pantalla 
 		SDL_SetRenderDrawColor(demo->renderer, 0, 0, 0, 0xFF);
@@ -75,21 +90,22 @@ int main(int argc, char* args[])
 
 		// Aumenta numerador
 		num += COLOR_RATE;
-		// Cambia el color
-		ChangeColor(num, &color);
+		if (num > 300) num = 0;
+
 
 		// Actualiza Estrellas 
 		for (int i = 0; i < STARS; i++)
 		{
+			ChangeColor(num + (COLOR_RATE * i), &color);
 			StarUpdate(&starfield[i], &color);
-			StarRender(demo->renderer, &t, &starfield[i], &origen, &color);
+			StarRender(demo->renderer, &tex, &starfield[i], &origen, &color);
 		}
 
 		// Dibuja en Pantalla 
 		SDL_RenderPresent(demo->renderer);
 	}
 
-	TextureDestroy(&t);
+	TextureDestroy(&tex);
 
 	// Terminar SDL
 	SDL_DestroyRenderer(demo->renderer);
@@ -131,11 +147,3 @@ void ChangeColor(float numerator, SDL_Color* color)
 		color->b = 255 - (255 * n) / 100;
 	}
 }
-
-/*
-float RandFloat(float min, float max)
-{
-	float ratio = (float)rand() / (float)RAND_MAX;
-	return (ratio * (max - min)) + min;
-}
-*/
