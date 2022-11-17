@@ -21,13 +21,10 @@ int main(int argc, char* args[])
     {
         // Carga Textura de esfera
         Texture texSphere;
-        TextureLoad(demo->renderer, "Sphere.bmp", &texSphere);
+        TextureLoad(demo->renderer, "resources/Sphere.bmp", &texSphere);
 
         // Inicializa 'Puntos'
         Vector2* dots = malloc(sizeof(Vector2) * DOTS * ROWS);
-
-        // Espaciado entre olas
-        float y_spacing = 20;
 
         // Angulo
         float angle = 0;
@@ -68,9 +65,6 @@ int main(int argc, char* args[])
                 // Mueve el 'Punto' al origen
                 Vector2 v = Vector2Add(dots[i], origin);
 
-                // Escala dependiendo la 'Fila';
-                float s = (float)row / ROWS;
-
                 // Renderiza
                 TextureRender(demo->renderer, &texSphere, v.x, v.y, 1, &c);
             }
@@ -79,7 +73,6 @@ int main(int argc, char* args[])
             SDL_RenderPresent(demo->renderer);
         }
         
-
         // Libera 'Puntos'
         free(dots);
 
