@@ -5,19 +5,42 @@
 #include "../common/vector.h"
 #include "../common/texture.h"
 
-// Structs
+/* Estructuras */
 
 typedef struct Star {
 	Vector3 position;
-	float speed;
+	SDL_Color color;
 	float maxZ;
-	//int tail;
 } Star;
 
-// Declaracion de Funciones
+/* Declaracion de Funciones */
 
-void StarConstruct(Star* star, float area_width, float area_height, float max_z, int tail_length, float max_speed, float min_speed);
-void StarUpdate(Star* star, SDL_Color* color);
-void StarRender(SDL_Renderer* renderer, Texture* texture, Star* star, Vector3* origin, SDL_Color* color);
+/**
+ * Construye una Estrella
+ * 
+ * \param star Estrella a inicializar
+ * \param area_width Area horizontal para inicializar posicion
+ * \param area_height Area vertical para inicializar posicion
+ * \param max_z Maxima distancia en el Eje Z
+ */
+void StarConstruct(Star* star, float area_width, float area_height, float max_z);
+
+/**
+ * Actualiza la posicion de la estrella
+ * 
+ * \param star Estrella a actualizar
+ * \param speed Velocidad de la estrella
+ */
+void StarUpdate(Star* star, float speed);
+
+/**
+ * Renderiza la estrella en pantalla con una Textura y Origen determinados
+ * 
+ * \param renderer Renderer que se utilizara
+ * \param star Estrella a renderizar
+ * \param texture Textura que se utilizara
+ * \param origin Posicion de Origen para la estrella
+ */
+void StarRender(SDL_Renderer* renderer, Star* star, Texture* texture, Vector3* origin);
 
 #endif // STAR_H

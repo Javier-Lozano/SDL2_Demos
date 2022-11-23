@@ -32,7 +32,6 @@ int StartSDL(Demo* demo, const char* name, int width, int height, Uint32 sdl_fla
 	return success;
 }
 
-// Termina y destruye recursos principales de SDL
 void CloseSDL(Demo* demo)
 {
 	// Destruye Ventana
@@ -41,7 +40,4 @@ void CloseSDL(Demo* demo)
 	SDL_DestroyRenderer(demo->renderer);
 	// Termina SDL
 	SDL_Quit();
-
-	// Libera Demo
-	free(demo);
 }

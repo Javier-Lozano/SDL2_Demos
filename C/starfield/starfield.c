@@ -18,111 +18,131 @@
  * El canal Alpha es proporcional a la posicion en Eje Z, si esta mas alejado
  * del origen la particula tendra una mayor transparencia.
  *
- * Los colores se ciclan interpolandose Entre Rojo a Verde, de Verde a Azul y
- * de Azul a Rojo.
+ * Transcurrido cierto tiempo el campo de estrellas comenzara a cambiar de 
+ * direccion.
  */
 
 #include "starfield.h"
 
 int main(int argc, char* args[])
 {
-	// Inicia 'Demo' 
-	Demo* demo = malloc(sizeof(Demo));
-	
-	// Inicio rapido de SDL 
-	SDL_Init(SDL_INIT_VIDEO);
-	demo->window = SDL_CreateWindow(NAME, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS);
-	demo->renderer = SDL_CreateRenderer(demo->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	// Variables
+	Demo demo;
+	int run;
+	int loop;
 
-	// Activa el Alpha Blending
-	SDL_SetRenderDrawBlendMode(demo->renderer, SDL_BLENDMODE_BLEND);
+	Texture starTexture;
+	Vector3 starOrigin;
+	Star stars[STARS];
 
-	// Textura: Debería haber 3 archivos .bmp adjuntos al codigo fuente. Puedes probar con cualquiera
-	Texture tex;
-	TextureLoad(demo->renderer, "resources/Star_Dot.bmp", &tex);
+	Uint32 ticks;
+	Uint32 timeDelta;
+	Uint32 t;
 
-	// Semilla aleatorea en base a la "Tiempo" actual 
-	srand(time(NULL));
+	// Inicia SDL
+	run = StartSDL(&demo, NAME, WIDTH, HEIGHT, SDL_FLAGS, WINDOW_FLAGS, RENDER_FLAGS);
 
-	// Posicion el Origen en el centro de la ventana
-	Vector3 origen = { WIDTH * 0.5, HEIGHT * 0.5, 0 };
-
-	// Inicializa 'Starfield' 
-	Star* starfield = malloc(sizeof(Star) * STARS);
-	for (int i = 0; i < STARS; i++)
+	// Si SDL inicio correctamente continua con la ejecucion
+	if (run)
 	{
-		StarConstruct(&starfield[i], WIDTH, HEIGHT, Z_MAX, TAIL, STAR_SPEED_MAX, STAR_SPEED_MIN);
-	}
+		// Inicializa rand() con el tiempo actual
+		srand(time(NULL));
 
-	// Color
-	SDL_Color color;
+		// Activa el Alpha Blending
+		SDL_SetRenderDrawBlendMode(demo.renderer, SDL_BLENDMODE_BLEND);
 
-	// Numerador que indica cuando debe cambiar el color
-	float num = 0;
+		// Carga la Textura.
+		TextureLoad(demo.renderer, "resources/Star_Dot.bmp", &starTexture);
 
-	// Bucle Principal 
-	int loop = 1;
-	while (loop)
-	{
-		// Eventos
-		while (SDL_PollEvent(&demo->event)) 
-		{
-			// Salir
-			if (demo->event.type == SDL_QUIT) loop = 0;
+		// Posiciona el 'Origen' al centro de la ventana
+		starOrigin.x = WIDTH * 0.5;
+		starOrigin.y =  HEIGHT * 0.5;
 
-			// Presiona Tecla
-			if (demo->event.type == SDL_KEYDOWN)
-			{
-				// Si presiona Enter
-				if (demo->event.key.keysym.sym == SDLK_RETURN)
-				{
-					for (int i = 0; i < STARS; i++)
-					{
-						starfield[i].speed *= -1;
-					}
-				}
-			}
-		}
-
-		// Limpia Pantalla 
-		SDL_SetRenderDrawColor(demo->renderer, 0, 0, 0, 0xFF);
-		SDL_RenderClear(demo->renderer);
-
-		// Aumenta numerador
-		num += COLOR_RATE;
-		if (num > 300) num = 0;
-
-
-		// Actualiza Estrellas 
+		// Inicializa las estrellas
 		for (int i = 0; i < STARS; i++)
 		{
-			ChangeColor(num + (COLOR_RATE * i), &color);
-			StarUpdate(&starfield[i], &color);
-			StarRender(demo->renderer, &tex, &starfield[i], &origen, &color);
+			StarConstruct(&stars[i], WIDTH, HEIGHT, Z_MAX);
 		}
 
-		// Dibuja en Pantalla 
-		SDL_RenderPresent(demo->renderer);
+		// Inicializamos el contador y 'tiempo delta' en 0
+		ticks = 0;
+		timeDelta = 0;
+
+		// Bucle Principal
+		loop = 1;
+		while (loop)
+		{
+			// Obten el tiempo
+			ticks = SDL_GetTicks();
+			// Cuenta el tempo
+			t += timeDelta;
+
+			// Eventos
+			while (SDL_PollEvent(&demo.event)) if (demo.event.type == SDL_QUIT) loop = 0;
+
+			// Limpia Pantalla 
+			SDL_SetRenderDrawColor(demo.renderer, 0, 0, 0, 0xFF);
+			SDL_RenderClear(demo.renderer);
+
+			// Actualiza Estrellas 
+			for (int i = 0; i < STARS; i++)
+			{
+				StarUpdate(&stars[i], STAR_SPEED);
+				StarRender(demo.renderer, &stars[i], &starTexture, &starOrigin);
+			}
+
+			// Renderiza
+			SDL_RenderPresent(demo.renderer);
+
+			// Obten 'tiempo delta'
+			timeDelta = SDL_GetTicks() - ticks;
+		}
+
+		// Libera Recursos
+		TextureDestroy(&starTexture);
 	}
 
-	TextureDestroy(&tex);
-
 	// Terminar SDL
-	SDL_DestroyRenderer(demo->renderer);
-	SDL_DestroyWindow(demo->window);
-	SDL_Quit();
-
-	// Libera 'Starfield' 
-	free(starfield);
-
-	// Liberar 'Demo' 
-	free(demo);
+	CloseSDL(&demo);
 
 	return 0;
 }
 
-// Definicion 
+/*
+void CreateColors(SDL_Color* color, int color_num, int index)
+{
+	// Variables
+	int red_section = color_num / 3;
+	int green_section = (color_num * 2) / 3;
+	int blue_section = color_num;
 
+	// Colores
+	int c1 = (255 * index) / color_num;
+	int c2 = 255 - c1;
+	int c3 = 0;
+	
+	if (index < red_section) // Transiciona de Rojo a Verde
+	{
+		color->r = c2;
+		color->g = c1;
+		color->b = c3;
+	}
+	else if (index < green_section) // Transiciona de Verde a Azul
+	{
+		color->r = c3;
+		color->g = c2;
+		color->b = c1;
+	}
+	else if (index < blue_section) // Transiciona de Azul a Rojo
+	{
+		color->r = c1;
+		color->g = c3;
+		color->b = c2;
+	}
+}
+*/
+
+/*
 void ChangeColor(float numerator, SDL_Color* color)
 {
 	int n = (int)numerator % 100;
@@ -147,3 +167,4 @@ void ChangeColor(float numerator, SDL_Color* color)
 		color->b = 255 - (255 * n) / 100;
 	}
 }
+*/
