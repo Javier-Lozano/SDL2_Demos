@@ -18,8 +18,12 @@
  * El canal Alpha es proporcional a la posicion en Eje Z, si esta mas alejado
  * del origen la particula tendra una mayor transparencia.
  *
- * Transcurrido cierto tiempo el campo de estrellas comenzara a cambiar de 
- * direccion.
+ * Las teclas Arriba y Abajo aumentan y decrecen la velocidad de las estrellas
+ *  respectivamente.
+ * 
+ * La tecla Enter/Return activa una Transicion en la cual las estrellas
+ * cambiaran de direccion. Tambien es posible activar una transicion automatica
+ * con la tecla TAB.
  */
 
 #include "starfield.h"
@@ -34,10 +38,18 @@ int main(int argc, char* args[])
 	Texture starTexture;
 	Vector3 starOrigin;
 	Star stars[STARS];
+	int starSpeed;
 
 	Uint32 ticks;
 	Uint32 timeDelta;
-	Uint32 t;
+	Uint32 clock;
+
+	int transitionState;
+	int transitionAutomatic;
+	int directionSign;
+	float direction;
+
+	printf("Up - Speeds Up\nDown - Speeds Down\nReturn - Manually activates Transition\nTab - Switch automatic Transition ON and OFF.\n");
 
 	// Inicia SDL
 	run = StartSDL(&demo, NAME, WIDTH, HEIGHT, SDL_FLAGS, WINDOW_FLAGS, RENDER_FLAGS);
@@ -64,21 +76,93 @@ int main(int argc, char* args[])
 			StarConstruct(&stars[i], WIDTH, HEIGHT, Z_MAX);
 		}
 
-		// Inicializamos el contador y 'tiempo delta' en 0
+		// Inicializa la velocidad
+		starSpeed = STAR_SPEED;
+
+		// Inicializamos el reloj, contador y 'tiempo delta' en 0
+		clock = 0;
 		ticks = 0;
 		timeDelta = 0;
+
+		// Inicializa el estado de la Transicion
+		transitionState = 0;
+		transitionAutomatic = 0;
+
+		// Inicializamos la direccion positiva
+		direction = 1;
+		directionSign = 1;
 
 		// Bucle Principal
 		loop = 1;
 		while (loop)
 		{
-			// Obten el tiempo
+			// Obten el tiempo actual
 			ticks = SDL_GetTicks();
-			// Cuenta el tempo
-			t += timeDelta;
+			// Aumenta el tiempo al reloj
+			clock += timeDelta;
 
 			// Eventos
-			while (SDL_PollEvent(&demo.event)) if (demo.event.type == SDL_QUIT) loop = 0;
+			while (SDL_PollEvent(&demo.event))
+			{
+				if (demo.event.type == SDL_QUIT)
+				{
+					loop = 0;
+				}
+				else if (demo.event.type == SDL_KEYDOWN)
+				{
+					// Obten la tecla que fue presionada
+					SDL_Keycode key = demo.event.key.keysym.sym;
+
+					// Modifica la velocidad
+					if (key == SDLK_UP)
+					{
+						starSpeed += 5;
+						printf("Speed UP!: %d\n", starSpeed);
+					}
+					else if (key == SDLK_DOWN)
+					{
+						starSpeed -= 5;
+						printf("Speed DOWN!: %d\n", starSpeed);
+					}
+
+					// Activa Transicion manualmente
+					if (key == SDLK_RETURN && !transitionState)
+					{
+						clock = 0;
+						transitionState = 1;
+						printf("Turning DIRECTION!\n");
+					}
+
+					// Activa o Desactiva Transicion Automatica
+					if (key == SDLK_TAB)
+					{
+						transitionAutomatic = !transitionAutomatic;
+						clock = 0;
+						printf("Automatic Transition SWITCHED! %d\n", transitionAutomatic);
+					}
+				}
+			}
+
+			// Revisa los estados
+			if (!transitionState && transitionAutomatic && clock >= STARFIELD_TIME_MS)
+			{
+				clock = 0;
+				transitionState = 1;
+				printf("Turning DIRECTION!\n");
+			}
+			else if (transitionState)
+			{
+				float ratio = (float)clock / TRANSITION_TIME_MS;
+				direction = SDL_cosf(ratio * PI) * directionSign;
+				if (clock >= TRANSITION_TIME_MS)
+				{
+					clock = 0;
+					transitionState = 0;
+					directionSign = SIGN(direction);
+					direction = directionSign;
+				}
+				//printf("Ratio: %f Dir: %f\n", ratio, direction);
+			}
 
 			// Limpia Pantalla 
 			SDL_SetRenderDrawColor(demo.renderer, 0, 0, 0, 0xFF);
@@ -87,14 +171,14 @@ int main(int argc, char* args[])
 			// Actualiza Estrellas 
 			for (int i = 0; i < STARS; i++)
 			{
-				StarUpdate(&stars[i], STAR_SPEED);
+				StarUpdate(&stars[i], starSpeed * direction);
 				StarRender(demo.renderer, &stars[i], &starTexture, &starOrigin);
 			}
 
 			// Renderiza
 			SDL_RenderPresent(demo.renderer);
 
-			// Obten 'tiempo delta'
+			// Calcula el 'tiempo delta'
 			timeDelta = SDL_GetTicks() - ticks;
 		}
 
