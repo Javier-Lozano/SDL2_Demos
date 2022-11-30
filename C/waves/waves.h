@@ -1,32 +1,31 @@
 #if !defined(WAVES_H)
 #define WAVES_H
 
-#include <SDL2/SDL.h>
-
+#include "../common/demo.h"
+#include "../common/math.h"
 #include "../common/vector.h"
 #include "../common/texture.h"
 
-// MACROS
+/* Macros */
 
-#define NAME "SDL2 Dot.Waves [C]"
-#define WIDTH	640
-#define HEIGHT	480
+#define NAME "SDL2 Waves [C]"
+#define WIDTH 800
+#define HEIGHT 600
+#define SDL_FLAGS SDL_INIT_VIDEO
+#define WINDOW_FLAGS SDL_WINDOW_SHOWN
+#define RENDER_FLAGS SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
 
-#define DOTS	10
-#define ROWS 	10
-#define PI	3.1416
+#define COLUMNS 20
+#define ROWS 15
 
-// Estructuras
+#define DEGREE_RATE 0.01
+#define FREQUENCY_RATE 0.25
+#define AMPLITUDE_RATE 0.25
 
-typedef struct Demo {
-	SDL_Window* window;
-	SDL_Renderer* renderer;
-	SDL_Event event;
-} Demo;
+/* Declaracion de Funciones */
 
-// Declaracion de Funciones
-
-int StartSDL(Demo* demo);
-void CloseSDL(Demo* demo);
+//float SineWave(float angle, float frequency, float amplitude);
+//float Sawtooth(float angle, float frequency, float amplitude, int iterations);
+//float MusicWave();
 
 #endif // WAVES_H

@@ -1,130 +1,88 @@
 /**
  * Programa: Waves
  * Autor: Javier Lozano
- * 
- * Descripcion:
- * Animacion de unos puntos moviendose formando una especie de 'Onda'
- * 
- * 
  */
 
 #include "waves.h"
 
 int main(int argc, char* args[])
 {
-    // Asigna 'Demo' 
-	Demo* demo = malloc(sizeof(Demo));
+    // Variables
+    Demo demo;
+    int run;
+    int loop = 1;
+
+    Texture texture;
+    SDL_Color textureColor = { 0x11, 0x65, 0xD1, 0xFF };
+
+    float deg = 0;
+    float frequency = 31;
+    float amplitude = 15;
 
     // Inicia SDL
-    int run = StartSDL(demo);
+    run = StartSDL(&demo, NAME, WIDTH, HEIGHT, SDL_FLAGS, WINDOW_FLAGS, RENDER_FLAGS);
     if (run)
     {
-        // Carga Textura de esfera
-        Texture texSphere;
-        TextureLoad(demo->renderer, "resources/Sphere.bmp", &texSphere);
+        // Inicializa la textura
+        TextureLoad(demo.renderer, "resources/Sphere.bmp", &texture);
 
-        // Inicializa 'Puntos'
-        Vector2* dots = malloc(sizeof(Vector2) * DOTS * ROWS);
-
-        // Angulo
-        float angle = 0;
-
-        // Radio
-        float radio = 30;
-
-        // Origen
-        Vector2 origin = { WIDTH / DOTS * 0.5, HEIGHT / ROWS};
-
-        // Bucle principal
-        int loop = 1;
+        // Bucle Principal
         while (loop)
         {
-            while (SDL_PollEvent(&demo->event)) if (demo->event.type == SDL_QUIT) loop = 0;
-
-            // Limpia pantalla
-            SDL_SetRenderDrawColor(demo->renderer, 0, 0x10, 0x43, 0xFF);
-            SDL_RenderClear(demo->renderer);
-
-            // Actualiza posicion de los 'Puntos'
-            angle += 0.1;
-            SDL_Color c = { 0x11, 0x65, 0xD1, 0xFF };
-
-            for (int i = 0; i < DOTS * ROWS; i++)
+            // Eventos
+            while (SDL_PollEvent(&demo.event))
             {
-                int col = i % DOTS;
-                // Posiciona en Eje X
-                dots[i].x = col * (WIDTH / DOTS);
+                if (demo.event.type == SDL_QUIT) loop = 0;
+                if (demo.event.type == SDL_KEYDOWN)
+                {
+                    SDL_Keycode key = demo.event.key.keysym.sym;
+                    if (key == SDLK_UP) frequency += FREQUENCY_RATE;
+                    if (key == SDLK_DOWN) frequency -= FREQUENCY_RATE;
+                    if (key == SDLK_RIGHT) amplitude += AMPLITUDE_RATE;
+                    if (key == SDLK_LEFT) amplitude -= AMPLITUDE_RATE;
+                }
+            }
 
-                int row = i / DOTS;
-                float shift = (PI / 8) * row;
-                // Posiciona en Eje Y
-                float fract = (2 * PI) / DOTS;
-                int p = i / DOTS;
-                dots[i].y = (SDL_sinf(angle + shift + (i * fract)) * radio) + (p * 40);
+            // Aumenta los grados
+            deg += DEGREE_RATE;
 
-                // Mueve el 'Punto' al origen
-                Vector2 v = Vector2Add(dots[i], origin);
+            // Limpia Pantalla
+            SDL_SetRenderDrawColor(demo.renderer, 0, 0, 0, 0xFF);
+            SDL_RenderClear(demo.renderer);
 
-                // Renderiza
-                TextureRender(demo->renderer, &texSphere, v.x, v.y, 1, &c);
+            // Calcula los Puntos
+            for (int i = 0; i < ROWS * COLUMNS; i++)
+            {
+                // Obten el angulo en Radianes
+                float radians = deg + (i * DEGREE_RATE);
+                // Calcula el seno del angulo
+                float sin = SDL_sinf(radians * frequency) * amplitude;
+
+                // Posiciona
+                int col = i % COLUMNS;
+                int row = i / COLUMNS;
+                int section_x = (WIDTH / COLUMNS);
+                int section_y = (HEIGHT / ROWS);
+                Vector2 position = {
+                    (col * section_x) + (section_x / 2),
+                    (row * section_y) + (section_y / 2) + sin
+                };
+
+                TextureRender(demo.renderer, &texture, position.x, position.y, 1, &textureColor);
             }
             
+
             // Renderiza
-            SDL_RenderPresent(demo->renderer);
+            SDL_RenderPresent(demo.renderer);
+            
         }
-        
-        // Libera 'Puntos'
-        free(dots);
 
-        // Destruye Textura de esfera
-        TextureDestroy(&texSphere);
-
+        // Destruye Textura
+        TextureDestroy(&texture);
     }
 
     // Termina SDL
-    CloseSDL(demo);
-
-    // Libera 'Demo'
-    free(demo);
+    CloseSDL(&demo);
 
     return 0;
-}
-
-int StartSDL(Demo* demo)
-{
-    int success = 1;
-
-    // Inicializa SDL
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
-        printf("SDL_Error: %s\n", SDL_GetError());
-        success = 0;
-    }
-
-    // Crea ventana y revisa si no es NULL
-	demo->window = SDL_CreateWindow(NAME, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS);
-    if (demo->window == NULL)
-    {
-        printf("SDL_Error: %s\n", SDL_GetError());
-        success = 0;
-    }
-
-    // Crea renderer y revisa si no es NULL
-	demo->renderer = SDL_CreateRenderer(demo->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (demo->renderer == NULL)
-    {
-        printf("SDL_Error: %s\n", SDL_GetError());
-        success = 0;
-    }
-
-    return success;
-
-}
-
-void CloseSDL(Demo* demo)
-{
-    // Termina SDL
-    SDL_DestroyWindow(demo->window);
-    SDL_DestroyRenderer(demo->renderer);
-    SDL_Quit();
 }
